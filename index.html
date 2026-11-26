@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calendário StarBro</title>
+<style>
+/* Identidade VOLTZ: preto, branco e cinza, títulos em Arial bold, fios finos, rótulos em caixa-alta pequena.
+   Layout desktop: mês em grade escura à esquerda, dia aberto num painel claro à direita (sanduíche escuro/claro). */
+:root{
+  color-scheme:dark;
+  --black:#0A0A0A; --cell:#141414; --line:#2E2E2E; --mid:#8C8C8C; --ink:#FFFFFF; --soft:#B9B9B9;
+  --paper:#F3F3F1; --paper-line:#CFCFCB; --paper-ink:#0A0A0A; --paper-soft:#5E5E5A;
+  --display:Arial,"Helvetica Neue",Helvetica,sans-serif;
+  --body:Arial,"Helvetica Neue",Helvetica,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--black);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.42;overflow:hidden}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.kick{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.app{display:grid;grid-template-columns:minmax(0,1fr) clamp(400px,27vw,560px);height:100%}
+.main{display:flex;flex-direction:column;min-width:0;height:100%;padding:34px 36px 22px 44px;gap:20px;overflow:auto}
+
+/* topo */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;border-bottom:1px solid var(--line);padding-bottom:20px}
+.top .kick{color:var(--soft)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(40px,3.4vw,60px);line-height:.98;letter-spacing:-.03em;margin-top:10px}
+.sub{color:var(--soft);margin-top:10px;font-size:15px;max-width:62ch}
+.exec{min-width:300px;text-align:right}
+.exec b{font-family:var(--display);font-size:34px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;display:block;line-height:1;margin-top:6px}
+.bar{height:3px;background:var(--line);margin-top:12px}
+.bar span{display:block;height:100%;width:0;background:var(--ink);transition:width .6s cubic-bezier(.2,.8,.2,1)}
+
+/* as três frentes: cheio, cinza, contorno */
+.mk{display:inline-block;width:12px;height:12px;flex:none;border:1.5px solid var(--ink)}
+.f-pos .mk,.mk.f-pos{background:var(--ink)}
+.f-ven .mk,.mk.f-ven{background:var(--mid);border-color:var(--mid)}
+.f-dic .mk,.mk.f-dic{background:transparent}
+.fronts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 240px;gap:0;border:1px solid var(--line)}
+.front{display:flex;gap:14px;align-items:center;text-align:left;padding:14px 18px;border-right:1px solid var(--line);transition:opacity .3s,background .3s}
+.front:hover{background:var(--cell)}
+.front[aria-pressed="false"]{opacity:.32}
+.front .mk{width:18px;height:18px}
+.front .t{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:-.01em}
+.front .d{font-size:13px;color:var(--soft);line-height:1.3}
+.front .q{margin-left:auto;font-family:var(--display);font-weight:700;font-size:30px;font-variant-numeric:tabular-nums}
+.pubs{display:flex;flex-direction:column;justify-content:center;gap:6px;padding:10px 16px}
+.pubs label{color:var(--soft)}
+.pubs select{background:var(--black);border:1px solid var(--line);padding:8px 10px;border-radius:0}
+
+/* grade */
+.dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;color:var(--soft)}
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;grid-auto-rows:minmax(210px,auto)}
+.day{position:relative;display:flex;flex-direction:column;gap:7px;text-align:left;padding:8px;background:var(--cell);border:1px solid var(--line);min-width:0;
+  animation:sobe .55s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*16ms);transition:border-color .25s,background .25s}
+@keyframes sobe{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+.day:hover{border-color:var(--mid)}
+.day.on{border-color:var(--ink);background:#1D1D1D}
+.dh{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--display)}
+.num{font-weight:700;font-size:22px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.day.today .num{background:var(--ink);color:var(--black);padding:0 7px}
+.mes{font-size:12px;color:var(--soft)}
+.cnt{font-size:11px;font-weight:700;color:var(--black);background:var(--ink);padding:1px 7px;display:none}
+.cnt.has{display:inline-block}
+.free{margin:auto;color:#4a4a4a;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+.day{container-type:inline-size}
+.pc{display:block;min-width:0;transition:opacity .3s;overflow-wrap:anywhere}
+.pc.dim{opacity:.14}
+.kk{display:flex;justify-content:space-between;gap:6px;font-size:clamp(8.5px,6.6cqi,11px);font-weight:700;letter-spacing:.03em;text-transform:uppercase;line-height:1.25;overflow-wrap:normal;word-break:keep-all}
+.kk i{font-style:normal;display:block;opacity:.72}
+/* sem imagem: o texto é o principal */
+.pc.post.big{padding:8px 8px 10px;display:flex;flex-direction:column;gap:7px;border:1.5px solid var(--ink)}
+.pc.post.big.f-pos{background:var(--ink);color:var(--black)}
+.pc.post.big.f-ven{background:var(--mid);border-color:var(--mid);color:var(--black)}
+.pc.post.big.f-dic{background:transparent;color:var(--ink)}
+.pc.post.big .tt{font-family:var(--display);font-weight:700;font-size:clamp(13px,10.5cqi,19px);line-height:1.1;letter-spacing:-.015em}
+/* stories: cartão menor, sempre legível */
+.pc.story.card{padding:7px 7px 8px;border-left:3px solid var(--ink);background:#1F1F1F;display:flex;flex-direction:column;gap:3px}
+.pc.story.card.f-ven{border-left-color:var(--mid)}
+.pc.story.card.f-dic{border-left-style:dashed}
+.pc.story.card .kk{color:var(--soft)}
+.pc.story.card .tt{font-size:clamp(12px,9cqi,14.5px);line-height:1.25;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+/* com imagem: a imagem é o principal, o texto encolhe */
+.cover{position:relative;flex:1;min-height:150px;background:#000;border:1px solid var(--line);overflow:hidden}
+.cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;display:block;animation:aparece .5s ease both}
+@keyframes aparece{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:none}}
+.pc.small{display:flex;align-items:flex-start;gap:6px;font-size:clamp(11px,8.5cqi,13px);line-height:1.25;color:var(--ink)}
+.pc.small .mk{margin-top:2px;width:10px;height:10px}
+.pc.small .tt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-width:0}
+.pc.small .tt b{font-size:.82em;letter-spacing:.06em;text-transform:uppercase;color:var(--soft)}
+.ok{display:inline-block;width:9px;height:9px;margin-top:2px;border-radius:50%;border:1.5px solid currentColor;flex:none}
+.ok[data-s="3"]{background:currentColor}
+.ok[data-s="1"],.ok[data-s="2"]{background:linear-gradient(90deg,currentColor 50%,transparent 50%)}
+
+/* painel claro */
+.panel{background:var(--paper);color:var(--paper-ink);height:100%;overflow:auto;padding:34px 34px 40px;color-scheme:light}
+.panel-in{animation:entra .4s cubic-bezier(.2,.8,.2,1) both;display:flex;flex-direction:column;gap:26px}
+@keyframes entra{from{transform:translateX(14px);opacity:0}to{transform:none;opacity:1}}
+.panel .kick{color:var(--paper-soft)}
+.pd{font-family:var(--display);font-weight:700;font-size:40px;line-height:1;letter-spacing:-.03em;margin-top:8px}
+.hint{color:var(--paper-soft);font-size:15px;max-width:44ch}
+.piece{border-top:2px solid var(--paper-ink);padding-top:14px;display:flex;flex-direction:column;gap:14px}
+.piece .k{display:flex;justify-content:space-between;gap:10px}
+.lb{display:block;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-soft);margin-bottom:5px}
+.ed{display:block;width:100%;background:#fff;border:1.5px solid var(--paper-line);border-radius:0;padding:11px 13px;font-size:15px;line-height:1.45;resize:none;overflow:hidden;color:var(--paper-ink);cursor:text;transition:border-color .2s}
+.ed:hover{border-color:var(--paper-ink)}
+.ed:focus{border-color:var(--paper-ink);outline:2px solid var(--paper-ink);outline-offset:-1px}
+.ed.h{font-family:var(--display);font-weight:700;font-size:28px;line-height:1.04;letter-spacing:-.025em}
+.lbr{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.lbr em{font-style:normal;font-size:11.5px;color:var(--paper-soft)}
+.art{border:1px solid var(--paper-line);background:#fff}
+.art img{display:block;width:100%;max-height:560px;object-fit:contain;background:#E7E7E4}
+.art .bar2{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:9px 12px;font-size:13px}
+.art .bar2 span{color:var(--paper-soft)}
+.lnk{text-decoration:underline;font-size:13px;font-weight:700}
+.drop{display:flex;align-items:center;justify-content:center;gap:10px;border:1px dashed var(--paper-ink);padding:22px 14px;font-weight:700;cursor:pointer;transition:background .2s}
+.drop:hover{background:#fff}
+.drop small{font-weight:400;color:var(--paper-soft)}
+.hid{position:absolute;opacity:0;width:1px;height:1px}
+.seg{display:flex;gap:0;flex-wrap:wrap;border:1px solid var(--paper-ink);width:fit-content}
+.seg button{padding:8px 13px;font-size:13px;border-right:1px solid var(--paper-ink);display:flex;align-items:center;gap:7px;transition:background .2s,color .2s}
+.seg button:last-child{border-right:0}
+.seg button:hover{background:#fff}
+.seg button[aria-pressed="true"]{background:var(--paper-ink);color:#fff;font-weight:700}
+.seg .mk{border-color:currentColor}
+.seg .mk.f-pos{background:currentColor}
+.seg .mk.f-ven{background:var(--mid);border-color:var(--mid)}
+.tag{align-self:flex-start;font-size:clamp(8.5px,6.4cqi,10.5px);font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:2px 5px;border:1.5px solid currentColor;margin-top:2px}
+.who{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:end;border-bottom:1px solid var(--paper-line);padding-bottom:18px;margin-bottom:24px}
+.who input.miss{border-color:var(--paper-ink);background:#fff;outline:2px solid var(--paper-ink)}
+.btn{padding:11px 16px;font-family:var(--display);font-weight:700;font-size:14px;border:1.5px solid var(--paper-ink);transition:background .2s,color .2s,transform .15s}
+.btn:hover{background:#fff}.btn:active{transform:scale(.98)}
+.btn.solid{background:var(--paper-ink);color:#fff}.btn.solid:hover{background:#333}
+.ap{border:2px solid var(--paper-ink);padding:18px;display:flex;flex-direction:column;gap:8px;background:#fff}
+.apt{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;letter-spacing:-.02em}
+.apd{font-size:14px;color:var(--paper-soft)}.apd b{color:inherit}
+.apx{font-size:15px;white-space:pre-wrap;border-left:3px solid var(--paper-ink);padding-left:10px;margin-top:4px}
+.ap.ap-ok{background:var(--paper-ink);color:#fff}
+.ap.ap-ok .apt{font-size:34px}
+.ap.ap-ok .apd{color:#CFCFCF}.ap.ap-ok .apd b{color:#fff}
+.ap.ap-ok .btn{border-color:#fff;color:#fff}.ap.ap-ok .btn:hover{background:#fff;color:var(--paper-ink)}
+.ap.ap-ajuste{border-style:dashed;border-width:2.5px}
+.aph{font-size:13px;color:var(--paper-soft)}
+.apb{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.ajf{display:flex;flex-direction:column;gap:8px;margin-top:6px}.ajf[hidden]{display:none}
+.ajf textarea{background:#fff;border:1.5px solid var(--paper-ink);padding:9px 11px;min-height:70px;color:var(--paper-ink);border-radius:0}
+.pv{background:#fff;border:1px solid var(--paper-line);margin:0 auto}
+.pv.feed{max-width:400px}.pv.sto{max-width:270px;position:relative}
+.pvh{display:flex;align-items:center;gap:9px;padding:9px 12px;font-size:13px}
+.pv.sto .pvh{position:absolute;z-index:2;color:#fff;left:0;right:0}
+.av{width:26px;height:26px;border-radius:50%;background:var(--paper-ink);flex:none}.pv.sto .av{background:#fff}
+.pvs{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.pvs::-webkit-scrollbar{display:none}
+.pvi{flex:0 0 100%;min-width:0;scroll-snap-align:start;aspect-ratio:4/5;background:#E4E4E1}
+.pv.sto .pvi{aspect-ratio:9/16}
+.pvi img{width:100%;height:100%;object-fit:cover;display:block}
+.pvn{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;font-size:13px;font-variant-numeric:tabular-nums}
+.pvl{padding:4px 12px 12px;font-size:13px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.bar2{display:flex;gap:16px;justify-content:space-between;padding:10px 0 0;flex-wrap:wrap}
+.hist{border-top:1px solid var(--paper-line);padding-top:10px}
+.hist summary{cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-soft)}
+.hist ol{list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.hist li{border-left:2px solid var(--paper-ink);padding-left:10px;font-size:13.5px}
+.who2{font-size:12px;color:var(--paper-soft)}.who2 b{color:var(--paper-ink)}
+.old{color:var(--paper-soft);font-size:12.5px;margin:3px 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.saved{font-size:12px;color:var(--paper-soft);min-height:16px}
+.space{border-top:2px solid var(--paper-ink);padding-top:14px;display:flex;flex-direction:column;gap:12px}
+.space h3{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.02em}
+.fld{display:flex;flex-direction:column}
+.fld input[type=text],.fld input[type=url],.fld textarea{background:#fff;border:1px solid var(--paper-line);padding:9px 11px;width:100%;border-radius:0;color:var(--paper-ink)}
+.fld input:focus,.fld textarea:focus{border-color:var(--paper-ink);outline:none}
+.fld textarea{min-height:84px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.file{display:flex;align-items:center;gap:10px;border:1px dashed var(--paper-ink);padding:9px 12px;font-size:13px;cursor:pointer;font-weight:700}
+.file img{width:44px;height:44px;object-fit:cover}
+.send{background:var(--paper-ink);color:#fff;font-family:var(--display);font-weight:700;padding:13px 16px;font-size:15px;transition:background .2s,transform .15s;width:100%}
+.send:hover{background:#333}
+.send:active{transform:scale(.99)}
+.err{font-size:13px;font-weight:700;min-height:18px}
+.note{background:#fff;border:1px solid var(--paper-line);padding:12px 14px;animation:sobe .4s cubic-bezier(.2,.8,.2,1) both}
+.note .who{font-size:12px;color:var(--paper-soft);display:flex;justify-content:space-between;gap:8px}
+.note .who b{color:var(--paper-ink)}
+.note p{margin-top:5px;white-space:pre-wrap;overflow-wrap:anywhere}
+.note img{max-width:100%;margin-top:9px;display:block}
+.note a{font-size:13px;overflow-wrap:anywhere;color:var(--paper-ink)}
+.foot{display:flex;justify-content:space-between;gap:20px;border-top:1px solid var(--line);padding-top:12px;color:var(--soft);font-size:12px}
+@media (max-width:1180px){body{overflow:auto}.app{grid-template-columns:1fr;height:auto}.main,.panel{height:auto}.fronts{grid-template-columns:1fr}.front{border-right:0;border-bottom:1px solid var(--line)}.top{flex-direction:column;align-items:flex-start}.exec{text-align:left}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="main">
+    <div class="top">
+      <div>
+        <div class="kick">VOLTZ MEDIA · StarBro Sport Tech</div>
+        <h1>Calendário de conteúdo</h1>
+        <p class="sub">23 de novembro a 22 de dezembro. Planejamento quinzenal de 23/11 a 06/12 lançado; os outros dias estão livres para receber ideias.</p>
+      </div>
+      <div class="exec" aria-live="polite">
+        <div class="kick" style="color:var(--soft)">Planejado x executado</div>
+        <b id="execN">0 / 6</b>
+        <div class="kick" style="color:var(--soft);margin-top:6px">posts publicados</div>
+        <div class="bar"><span id="execBar"></span></div>
+      </div>
+    </div>
+    <div class="fronts" id="fronts"></div>
+    <div class="dow kick"><span>Segunda</span><span>Terça</span><span>Quarta</span><span>Quinta</span><span>Sexta</span><span>Sábado</span><span>Domingo</span></div>
+    <div class="grid" id="grid"></div>
+    <div class="foot"><span>VOLTZ MEDIA · Calendário de conteúdo · StarBro Sport Tech</span><span>Protótipo: o que você alterar fica salvo só neste navegador.</span></div>
+  </main>
+  <aside class="panel" id="panel"></aside>
+</div>
+
+<script>
+const FR={pos:{n:"Posicionamento",d:"O que a StarBro é e faz."},
+          ven:{n:"Vendas",d:"Court Pro, Court Premium e Court Lite."},
+          dic:{n:"Dicas",d:"O que dá para fazer com a nossa tecnologia."}};
+const ST=["Planejado","Em produção","Aprovado","Publicado"];
+const A="Cronograma do Arthur";
+const D={
+"2026-11-23":[["S1","story","Stories","pos","Todos","Teaser: “O seu clube está prestes a mudar de nível.”",A,{i:["Card animado com som de bola: “O seu clube está prestes a mudar de nível.”","Contagem regressiva para o F1"],m:"Card animado",c:"Quero no meu clube"}]],
+"2026-11-24":[["F1","post","Reels · 30 s","pos","Jogador sócio","Jogue como profissional",A,{o:"Fazer o jogador comum querer a experiência de torneio no clube dele.",i:["0–3 s: lance real de um highlight da quadra, com som de bola. Texto: “Todo fim de semana, você joga. Ninguém mede.”","3–12 s: sequência de highlights com os dados na tela: velocidade do saque, bola dentro ou fora. Texto: “A quadra inteligente mede cada bola.”","12–20 s: gravação de tela do app: notificação de highlight pronto e estatísticas da partida. Texto: “Seus números, ponto a ponto. Sem ninguém filmando.”","20–26 s: trecho de uma transmissão ao vivo com placar. Texto: “A experiência de um torneio profissional. Na quadra do seu clube.”","Final: logo + “O jogo, revelado.” + “Quer jogar assim no seu clube? Link na bio.”"],l:"Velocidade do saque, bola dentro ou fora, estatísticas de cada ponto e seus melhores lances prontos para mostrar. Tudo o que um profissional tem num torneio agora pode estar na quadra do seu clube. Quer jogar assim no seu clube? Peça pelo link na bio.",m:"10 a 15 highlights reais com dados na tela, 1 trecho de transmissão e acesso ao app para gravação de tela."}]],
+"2026-11-25":[["S2","story","Stories","pos","Jogador sócio","Enquete: “Seu clube já tem quadra inteligente?”",A,{i:["Repost do F1","Enquete “Seu clube já tem quadra inteligente?” (Sim / Ainda não)","Card: “Ainda não? Peça a StarBro no seu clube.”"],m:"Repost + card",c:"Peça no seu clube"}]],
+"2026-11-26":[["F2","post","Carrossel · 3 slides","dic","Jogador sócio","O que uma quadra inteligente entrega",A,{o:"O carrossel já produzido (3 slides), com os ajustes de CTA: sem o nome Wingfield nos títulos e com “Quer jogar assim no seu clube? Link na bio” no último slide.",i:["Slide 1: “Arraste e veja o que uma quadra inteligente entrega”","Slide 2: “Jogando numa quadra inteligente StarBro”","Slide 3: “Quem ganha nos números: você ou o seu parceiro?” + “Quer jogar assim no seu clube?” + selo “Link na bio”"],l:"Treinos com desafio, melhores momentos, vídeo do jogo e estatísticas ponto a ponto. É isso que uma quadra inteligente StarBro entrega a quem joga. Quer jogar assim no seu clube? Peça pelo link na bio.",m:"Arte já produzida, com ajustes"}],
+  ["S3","story","Stories","dic","Jogador sócio","Quiz dos recursos",A,{i:["Repost do F2","Quiz “Qual dado você queria ver do seu jogo?” (velocidade do saque, acerto, dentro ou fora, evolução)"],m:"Repost + card",c:"Quero jogar assim"}]],
+"2026-11-27":[["S4","story","Stories","dic","Professor","3 dados que mudam a aula",A,{i:["Card com tela do app: treino com desafio que mede o acerto","Card com tela do app: estatísticas de cada aluno","Card com tela do app: histórico de evolução"],m:"Cards com telas do app",c:"Leve para o seu clube"}]],
+"2026-11-28":[["F3","post","Carrossel · 7 slides","dic","Professor","Qualquer câmera grava. A quadra inteligente mede.",A,{o:"Mostrar que a quadra não filma a aula, ela mede. O professor sai da opinião e passa a ensinar com dados.",i:["Capa: “Qualquer câmera grava. A quadra inteligente mede.”","“Treino com desafio: a quadra conta cada acerto sozinha.”","“Dentro ou fora, profundidade, velocidade: cada bola vira dado.”","“As estatísticas de cada aluno, na mão do professor.” (tela do app)","“A primeira semana contra a quarta.” (gráfico de evolução de um aluno)","“Evolução medida, não prometida. O aluno vê. Os pais veem.”","“Quer dar aula com dados? Leve a StarBro para o seu clube. Link na bio.”"],l:"Qualquer câmera grava. A quadra inteligente mede: cada bola dentro ou fora, a velocidade, o aproveitamento nos treinos com desafio e a evolução do aluno semana a semana. O professor sai da opinião e ensina com dados. Quer dar aula com dados? Leve a StarBro para o seu clube. Link na bio.",m:"Telas reais do app e do painel com dados de alunos (sem nomes) e o histórico de um aluno em 4 semanas."}]],
+"2026-11-29":[["S5","story","Stories","dic","Professor","Selfie: “O que mudou na minha aula”",A,{i:["Repost do F3","Selfie da semana: professor de clube parceiro responde “O que mudou na minha aula com os dados?” (30 a 60 s)","Plano B: card com a frase dele"],m:"Selfie da semana 1",c:"Leve para o seu clube"}]],
+"2026-11-30":[["S6","story","Stories","dic","Jogador sócio e família","Jogo ao vivo: quem não pôde ir, assistiu",A,{i:["Gravação de tela de uma transmissão ao vivo com placar","Card: “Quem não pôde ir, assistiu.”"],m:"Gravação de tela da transmissão",c:"Quero isso no meu clube"}]],
+"2026-12-01":[["F4","post","Carrossel · 7 slides","ven","Dono de clube","O clube que todo mundo quer frequentar",A,{o:"Mostrar ao dono que a quadra inteligente segura sócio, gera receita e coloca o clube na frente.",i:["Capa (foto do clube cheio): “O clube que todo mundo quer frequentar já tem quadra inteligente.”","“Seus sócios já postam tudo. Agora eles postam o seu clube.”","“Aluno que vê a própria evolução em números não larga a aula.”","“Novas receitas: aula com análise de dados, torneio transmitido, patrocínio da quadra.”","“Sem operador. A quadra funciona e mede sozinha.”","“Já em operação na rede PlayTennis, na Assembleia Paraense e em torneios oficiais como o Circuito CBT Infantojuvenil.”","“Quer isso no seu clube? Fale com o time pelo link na bio.”"],l:"Quadra inteligente não é gasto, é o motivo para o sócio voltar. Dados que mostram a evolução do aluno, lances que divulgam o clube e novas fontes de receita. Quer isso no seu clube? Fale com o time pelo link na bio.",m:"Fotos da captação (clube cheio, quadra, recepção)."}]],
+"2026-12-02":[["S7","story","Stories","ven","Dono de clube","Selfie: “Por que instalei”",A,{i:["Repost do F4","Selfie da semana: gestor de clube parceiro responde “Por que instalei a quadra inteligente?” (30 a 60 s)","Plano B: card com a frase dele"],m:"Selfie da semana 2",c:"Fale com o time StarBro"}]],
+"2026-12-03":[["F5","post","Reels · 20 a 30 s","pos","Jogador sócio","Seu melhor ponto, medido",A,{o:"A peça de maior desejo da quinzena, feita para circular entre sócios.",i:["Dupla de sócios num fim de tarde","Rali longo e um ponto improvável","Corte para o celular: o mesmo ponto já pronto, com a velocidade e a estatística do rali na tela","Os dois olhando os números e rindo no banco","Texto: “Antes, o melhor ponto da sua vida era só história. Agora tem número.”","“O jogo, revelado.” + “Quer jogar assim no seu clube? Link na bio.”"],l:"Aquele ponto que ninguém acredita quando você conta? Na quadra inteligente ele tem vídeo, velocidade e estatística. Mostre para o seu parceiro de jogo. Quer jogar assim no seu clube? Peça pelo link na bio.",m:"Captação (cena 1 da lista) + o lance real gerado pela quadra no mesmo jogo."}],
+  ["S8","story","Stories","ven","Jogador sócio","Como pedir a StarBro no seu clube",A,{i:["Repost do F5","Card 1: toque no link","Card 2: diga seu clube e sua cidade","Card 3: o time StarBro procura o clube"],m:"Repost + cards",c:"Pedir agora"}]],
+"2026-12-04":[["S9","story","Stories","dic","Jogador sócio","Números do atleta + caixinha",A,{i:["Card com um número do treino do atleta (prévia do F6)","Caixinha “Pergunte ao atleta”"],m:"Cards com dados",c:"Quero jogar assim"}]],
+"2026-12-05":[["F6","post","Carrossel · 6 slides","dic","Jogador sócio e professor","Um treino de atleta, em números",A,{o:"Usar um atleta parceiro como referência e mostrar que os mesmos dados estão ao alcance do sócio.",i:["Capa: retrato do atleta parceiro em quadra. “Um treino de [nome do atleta], em números.”","Velocidade máxima do saque no treino.","Aproveitamento no treino com desafio.","Mapa de onde as bolas caíram.","Frase do atleta sobre como usa os dados.","“Esses números podem ser os seus. Na quadra do seu clube.” + “Link na bio.”"],l:"É assim que [nome do atleta] enxerga o próprio treino. E é assim que você pode enxergar o seu. Quer jogar assim no seu clube? Peça pelo link na bio.",m:"Retrato da captação, dados reais de um treino do atleta gerados pela quadra e a frase dele por escrito."}]],
+"2026-12-06":[["S10","story","Stories","pos","Todos","Respostas do atleta + resumo da quinzena",A,{i:["Respostas do atleta em cards","Resumo da quinzena","Enquete “Você é jogador, professor ou dono de clube?”"],m:"Cards",c:"Leve a StarBro para o seu clube"}]]
+};
+
+const START=new Date(2026,10,23), END=new Date(2026,11,22), TODAY="2026-11-26";
+const MES=["nov","dez"], MESL={10:"novembro",11:"dezembro"};
+const DOW=["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+const key=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const $=(s,r=document)=>r.querySelector(s);
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+
+// estado: guardado no navegador quando cabe; se não couber, vale até fechar a página
+let S={st:{},fr:{},notes:{},ed:{},art:{},ap:{},hist:{},nome:"",lado:"StarBro"};
+try{const r=localStorage.getItem("starbro-cal-v4");if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+const save=()=>{try{localStorage.setItem("starbro-cal-v4",JSON.stringify(S))}catch(e){}};
+const DEF=(p,f)=>f==="t"?p[5]:f==="i"?(p[7].i||[]).join("\n"):(p[7][f]||"");
+const val=(p,f)=>(S.ed[p[0]]&&S.ed[p[0]][f]!=null)?S.ed[p[0]][f]:DEF(p,f);
+const frOf=p=>S.fr[p[0]]||p[3], stOf=p=>S.st[p[0]]||0;
+const arts=id=>S.art[id]||[];
+const now=()=>{const d=new Date();return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})};
+function log(id,campo,de,para,f,txt){(S.hist[id]=S.hist[id]||[]).unshift({campo,de:de||'',para:para||'',f:f||null,txt:txt||'',nome:S.nome||'Sem nome',lado:S.lado,quando:now()});S.hist[id].length=Math.min(S.hist[id].length,40)}
+const all=()=>Object.values(D).flat();
+let active={pos:true,ven:true,dic:true}, pubSel="", openKey=null;
+
+function shrink(file,max,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{
+  const sc=Math.min(1,max/Math.max(im.width,im.height)),cv=document.createElement("canvas");
+  cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);cv.getContext("2d").drawImage(im,0,0,cv.width,cv.height);
+  cb(cv.toDataURL("image/jpeg",.84))};im.src=r.result};r.readAsDataURL(file)}
+
+/* frentes + público */
+const fronts=$("#fronts");
+for(const k in FR){
+  const b=el("button","front f-"+k,`<span class="mk"></span><span><span class="t">${FR[k].n}</span><br><span class="d">${FR[k].d}</span></span><span class="q" id="q-${k}">0</span>`);
+  b.setAttribute("aria-pressed","true");b.title="Mostrar ou esconder "+FR[k].n;
+  b.onclick=()=>{active[k]=!active[k];b.setAttribute("aria-pressed",active[k]);applyFilter()};
+  fronts.append(b);
+}
+const pubs=[...new Set(all().map(p=>p[4]))].sort();
+fronts.append(el("div","pubs",`<label class="kick" for="pub">Público</label><select id="pub"><option value="">Todos os públicos</option>${pubs.map(p=>`<option>${p}</option>`).join("")}</select>`));
+$("#pub").onchange=e=>{pubSel=e.target.value;applyFilter()};
+
+/* grade */
+const grid=$("#grid");let i=0;
+for(let d=new Date(START);d<=END;d.setDate(d.getDate()+1)){
+  const k=key(d), b=el("button","day"+(k===TODAY?" today":""));
+  b.style.setProperty("--i",i++);b.dataset.k=k;b.dataset.d=d.getDate();b.dataset.m=d.getMonth();
+  b.setAttribute("aria-label",`${DOW[d.getDay()]}, ${d.getDate()} de ${MESL[d.getMonth()]}`);
+  b.onclick=()=>openDay(k);grid.append(b);drawDay(k);
+}
+// a imagem principal do dia: arte do post, depois arte do story, depois a foto mais recente das notas
+function coverOf(k){
+  const ps=D[k]||[], a=ps.find(p=>p[1]==="post"&&arts(p[0]).length)||ps.find(p=>arts(p[0]).length);
+  if(a)return arts(a[0])[0];
+  const n=(S.notes[k]||[]).find(n=>n.img);return n?n.img:"";
+}
+function drawDay(k){
+  const b=grid.querySelector(`[data-k="${k}"]`), ps=D[k]||[], cv=coverOf(k), n=(S.notes[k]||[]).length;
+  b.innerHTML=`<span class="dh"><span><span class="num">${b.dataset.d}</span> <span class="mes">${MES[b.dataset.m-10]}</span></span><span class="cnt${n?" has":""}">${n?n+(n>1?" notas":" nota"):""}</span></span>`;
+  if(cv){const c=el("span","cover");const im=new Image();im.src=cv;im.alt="Arte anexada neste dia";c.append(im);b.append(c)}
+  ps.forEach(p=>{
+    const post=p[1]==="post", fmt=post?esc(p[2].split(" · ")[0]):"Stories", fn=FR[frOf(p)].n,
+          ok=post?`<span class="ok" data-s="${stOf(p)}" title="${ST[stOf(p)]}"></span>`:"";
+    const ap=S.ap[p[0]], tag=ap?`<span class="tag">${ap.tipo==="ok"?"✓ Aprovado":"! Ajuste pedido"}</span>`:"";
+    const s=el("span","pc "+p[1]+(cv?" small":post?" big":" card")+" f-"+frOf(p));s.id="pc-"+p[0];
+    s.innerHTML=cv
+      ?`<span class="mk"></span><span class="tt"><b>${ap?(ap.tipo==="ok"?"✓ Aprovado · ":"! Ajuste · "):""}${fmt}</b> ${esc(val(p,"t"))}</span>${ok}`
+      :`<span class="kk"><span>${fmt}<i class="fn">${fn}</i></span>${ok}</span><span class="tt">${esc(val(p,"t"))}</span>${tag}`;
+    b.append(s);
+  });
+  if(!ps.length&&!cv)b.append(el("span","free","Livre"));
+  applyFilter();
+}
+function applyFilter(){
+  all().forEach(p=>{const e=$("#pc-"+p[0]);if(e)e.classList.toggle("dim",!active[frOf(p)]||(pubSel&&p[4]!==pubSel))});
+}
+function counters(){
+  const posts=all().filter(p=>p[1]==="post");
+  for(const k in FR)$("#q-"+k).textContent=posts.filter(p=>frOf(p)===k).length;
+  const done=posts.filter(p=>stOf(p)===3).length;
+  $("#execN").textContent=`${done} / ${posts.length}`;
+  $("#execBar").style.width=(done/posts.length*100)+"%";
+}
+
+/* painel */
+const panel=$("#panel");
+panel.innerHTML=`<div class="who"><div class="fld"><label class="lb" for="w-nome">Seu nome</label><input id="w-nome" type="text" autocomplete="name" placeholder="Escreva para assinar o que fizer" value="${esc(S.nome)}"></div>
+  <div><span class="lb">Você é</span><div class="seg" id="w-lado"><button data-l="StarBro">StarBro</button><button data-l="Voltz">Voltz</button></div></div></div><div id="pbody"></div>`;
+const pbody=$("#pbody");let refreshers=[];
+$("#w-nome").oninput=e=>{S.nome=e.target.value.trim();save()};
+const ladoDraw=()=>$("#w-lado").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.l===S.lado));
+$("#w-lado").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.lado=b.dataset.l;save();ladoDraw();refreshers.forEach(f=>f())};
+ladoDraw();
+function needName(){if(S.nome)return true;const i=$("#w-nome");i.focus();i.classList.add("miss");setTimeout(()=>i.classList.remove("miss"),1600);return false}
+function intro(){
+  pbody.innerHTML=`<div class="panel-in"><div><div class="kick">Como usar</div><p class="pd">Escolha um dia</p></div>
+  <p class="hint">Clique num dia do calendário para ver o post do feed e os stories planejados.</p>
+  <p class="hint">Tudo é editável: título, roteiro, telas e legenda. Clique no texto e escreva por cima. Cada alteração fica no histórico da peça.</p>
+  <p class="hint">Quando uma arte é anexada, ela vira a imagem principal do dia e aparece na prévia de como vai sair no perfil.</p>
+  <p class="hint">A StarBro aprova ou pede ajuste em cada peça, com nome e data.</p></div>`;
+}
+function openDay(k){
+  if(openKey){const o=grid.querySelector(`[data-k="${openKey}"]`);o&&o.classList.remove("on")}
+  openKey=k;grid.querySelector(`[data-k="${k}"]`).classList.add("on");refreshers=[];
+  const [y,m,d]=k.split("-").map(Number), dt=new Date(y,m-1,d);
+  pbody.innerHTML="";const w=el("div","panel-in");
+  w.append(el("div","",`<div class="kick">${DOW[dt.getDay()]}</div><p class="pd">${d} de ${MESL[m-1]}</p>`));
+  const ps=D[k]||[];
+  if(!ps.length)w.append(el("p","hint","Nada planejado para este dia. Use o espaço abaixo para sugerir uma peça ou anexar uma referência."));
+  ps.forEach(p=>w.append(pieceCard(p,k)));
+  w.append(spaceBox(k));
+  pbody.append(w);panel.scrollTop=0;w.querySelectorAll(".ed").forEach(grow);
+}
+const LABEL={t:"Título",o:"Objetivo",i:"Roteiro ou telas",l:"Legenda",c:"Figurinha de link",m:"Material"};
+function fld(p,f,label){
+  if(!DEF(p,f)&&f!=="i")return "";
+  return `<div><div class="lbr"><label class="lb" for="e-${p[0]}-${f}">${label}</label><em>✎ clique para editar</em></div><textarea class="ed" id="e-${p[0]}-${f}" data-f="${f}" rows="2">${esc(val(p,f))}</textarea></div>`;
+}
+function grow(t){t.style.height="auto";t.style.height=(t.scrollHeight+2)+"px"}
+function pieceCard(p,k){
+  const id=p[0], post=p[1]==="post", c=el("section","piece");
+  c.innerHTML=`<div class="k kick"><span>${esc(p[2])} · ${esc(p[4])}</span></div>
+    <div><div class="lbr"><label class="lb" for="e-${id}-t">Título</label><em>✎ clique para editar</em></div><textarea class="ed h" id="e-${id}-t" data-f="t" rows="1">${esc(val(p,"t"))}</textarea></div>
+    <div class="apbox"></div>
+    <div class="artbox"></div>
+    <div><span class="lb">Frente</span><div class="seg fr">${Object.keys(FR).map(f=>`<button data-k="${f}" aria-pressed="${frOf(p)===f}"><span class="mk f-${f}"></span>${FR[f].n}</button>`).join("")}</div></div>
+    <div><span class="lb">Andamento</span><div class="seg st">${ST.map((s,n)=>`<button data-n="${n}" aria-pressed="${stOf(p)===n}">${s}</button>`).join("")}</div></div>
+    ${fld(p,"o","Objetivo")}${fld(p,"i",post?"Roteiro ou telas · uma por linha":"Telas e interação · uma por linha")}${fld(p,"l","Legenda")}${fld(p,"c","Figurinha de link")}${fld(p,"m","Material")}
+    <p class="saved" aria-live="polite"></p>
+    <details class="hist"><summary></summary><ol></ol></details>`;
+  const apbox=c.querySelector(".apbox"), box=c.querySelector(".artbox"), sv=c.querySelector(".saved"), hd=c.querySelector(".hist");let tm;
+  const said=t=>{sv.textContent=t;clearTimeout(tm);tm=setTimeout(()=>sv.textContent="",1800)};
+  const stDraw=()=>c.querySelectorAll(".st button").forEach(o=>o.setAttribute("aria-pressed",+o.dataset.n===stOf(p)));
+
+  /* histórico */
+  const hist=()=>{
+    const h=S.hist[id]||[];hd.querySelector("summary").textContent=`Histórico de alterações (${h.length})`;
+    const ol=hd.querySelector("ol");ol.innerHTML=h.length?"":`<li class="hint" style="font-size:13px">Nenhuma alteração ainda.</li>`;
+    h.forEach(e=>{const li=el("li","",`<div class="who2"><b>${esc(e.nome)}</b> · ${esc(e.lado)} · ${esc(e.quando)}</div><div><b>${esc(e.campo)}</b>${e.txt?": "+esc(e.txt):""}</div>${e.f?`<div class="old">Antes: ${esc(e.de)||"(vazio)"}</div><button class="lnk" type="button">Restaurar o texto anterior</button>`:""}`);
+      if(e.f)li.querySelector("button").onclick=()=>{const t=c.querySelector(`.ed[data-f="${e.f}"]`);if(!t)return;const cur=t.value;
+        (S.ed[id]=S.ed[id]||{})[e.f]=e.de;t.value=e.de;grow(t);log(id,LABEL[e.f],cur,e.de,e.f,"texto anterior restaurado");save();hist();if(e.f==="t")drawDay(k);if(e.f==="l")drawArt();said("Texto restaurado")};
+      ol.append(li)});
+  };
+
+  /* aprovação */
+  const apDraw=()=>{
+    const ap=S.ap[id], cli=S.lado==="StarBro";
+    const head=!ap?`<div class="apt">Aguardando aprovação</div><div class="apd">A StarBro ainda não aprovou esta peça.</div>`
+      :ap.tipo==="ok"?`<div class="apt">✓ Aprovado</div><div class="apd">por <b>${esc(ap.nome)}</b> · ${esc(ap.quando)}</div>`
+      :`<div class="apt">! Ajuste pedido</div><div class="apd">por <b>${esc(ap.nome)}</b> · ${esc(ap.quando)}</div><p class="apx">${esc(ap.txt)}</p>`;
+    apbox.innerHTML=`<div class="ap ${ap?"ap-"+ap.tipo:""}">${head}
+      ${cli?`<div class="apb">${ap&&ap.tipo==="ok"?`<button class="btn a-un" type="button">Tirar aprovação</button>`:`<button class="btn solid a-ok" type="button">Aprovar</button>`}<button class="btn a-aj" type="button">Pedir ajuste</button>${ap&&ap.tipo==="ajuste"?`<button class="btn a-un" type="button">Cancelar pedido</button>`:""}</div>
+      <div class="ajf" hidden><label class="lb" for="aj-${id}">O que precisa mudar</label><textarea id="aj-${id}"></textarea><button class="btn solid a-send" type="button">Enviar pedido de ajuste</button></div>`
+      :`<p class="aph">Só a StarBro aprova. Para testar, troque "Você é" no topo do painel.</p>`}</div>`;
+    if(!cli)return;
+    const set=(tipo,txt)=>{if(!needName())return;S.ap[id]={tipo,txt:txt||"",nome:S.nome,quando:now()};S.st[id]=tipo==="ok"?2:1;
+      log(id,tipo==="ok"?"Aprovação":"Pedido de ajuste","","",null,txt||"");save();apDraw();stDraw();hist();drawDay(k);counters()};
+    const okb=apbox.querySelector(".a-ok");if(okb)okb.onclick=()=>set("ok");
+    const ajf=apbox.querySelector(".ajf");
+    apbox.querySelector(".a-aj").onclick=()=>{ajf.hidden=!ajf.hidden;if(!ajf.hidden)ajf.querySelector("textarea").focus()};
+    apbox.querySelector(".a-send").onclick=()=>{const t=ajf.querySelector("textarea").value.trim();if(!t){ajf.querySelector("textarea").focus();return}set("ajuste",t)};
+    const un=apbox.querySelector(".a-un");if(un)un.onclick=()=>{if(!needName())return;const era=S.ap[id].tipo;delete S.ap[id];S.st[id]=1;log(id,era==="ok"?"Aprovação retirada":"Pedido de ajuste cancelado");save();apDraw();stDraw();hist();drawDay(k);counters()};
+  };
+  refreshers.push(apDraw);
+
+  /* arte + prévia de como sai no perfil */
+  const drawArt=()=>{
+    const a=arts(id);
+    if(!a.length){box.innerHTML=`<label class="drop">Anexar arte desta peça <small>${post?"uma ou mais imagens; vira a principal do dia":"vira a imagem principal do dia"}</small><input class="hid" type="file" accept="image/*" multiple></label>`}
+    else{
+      box.innerHTML=`<span class="lb">Prévia de como sai no perfil</span>
+      <div class="pv ${post?"feed":"sto"}">
+        <div class="pvh"><span class="av"></span><b>starbro.sport</b></div>
+        <div class="pvs" tabindex="0" aria-label="Imagens da peça">${a.map((u,n)=>`<div class="pvi"><img alt="Imagem ${n+1} de ${a.length}" src="${u}"></div>`).join("")}</div>
+        ${a.length>1?`<div class="pvn"><button type="button" class="lnk pv-p">Anterior</button><span class="pvc">1 / ${a.length}</span><button type="button" class="lnk pv-n">Próxima</button></div>`:""}
+        ${post&&val(p,"l")?`<p class="pvl"><b>starbro.sport</b> ${esc(val(p,"l"))}</p>`:""}
+      </div>
+      <div class="bar2"><label class="lnk" style="cursor:pointer">Adicionar imagem<input class="hid" type="file" accept="image/*" multiple></label><button class="lnk rm" type="button">Remover a imagem que está na tela</button></div>`;
+      const sc=box.querySelector(".pvs"), idx=()=>Math.round(sc.scrollLeft/sc.clientWidth), go=n=>sc.scrollTo({left:n*sc.clientWidth,behavior:"smooth"});
+      const cnt=box.querySelector(".pvc");
+      sc.onscroll=()=>{if(cnt)cnt.textContent=`${idx()+1} / ${a.length}`};
+      sc.onkeydown=e=>{if(e.key==="ArrowRight")go(idx()+1);if(e.key==="ArrowLeft")go(idx()-1)};
+      if(a.length>1){box.querySelector(".pv-p").onclick=()=>go(Math.max(0,idx()-1));box.querySelector(".pv-n").onclick=()=>go(Math.min(a.length-1,idx()+1))}
+      box.querySelector(".rm").onclick=()=>{a.splice(idx(),1);S.art[id]=a;log(id,"Arte removida");save();drawArt();hist();drawDay(k)};
+    }
+    box.querySelector("input").onchange=e=>{const fs=[...e.target.files];if(!fs.length)return;let n=0;
+      const next=()=>{if(n>=fs.length){log(id,"Arte anexada","","",null,fs.length>1?fs.length+" imagens":"");save();drawArt();hist();drawDay(k);said("Arte anexada");return}
+        shrink(fs[n++],1400,u=>{(S.art[id]=arts(id)).push(u);next()})};next()};
+  };
+
+  c.querySelectorAll(".ed").forEach(t=>{
+    t.onfocus=()=>{t._old=t.value};
+    t.oninput=()=>{(S.ed[id]=S.ed[id]||{})[t.dataset.f]=t.value;save();grow(t);if(t.dataset.f==="t")drawDay(k);said("Alteração salva")};
+    t.onblur=()=>{if(t._old!=null&&t.value!==t._old){log(id,LABEL[t.dataset.f],t._old,t.value,t.dataset.f);save();hist();if(t.dataset.f==="l")drawArt()}};
+  });
+  c.querySelector(".fr").onclick=e=>{const b=e.target.closest("button");if(!b||b.dataset.k===frOf(p))return;
+    log(id,"Frente","","",null,FR[frOf(p)].n+" → "+FR[b.dataset.k].n);S.fr[id]=b.dataset.k;save();
+    c.querySelectorAll(".fr button").forEach(o=>o.setAttribute("aria-pressed",o===b));hist();drawDay(k);counters()};
+  c.querySelector(".st").onclick=e=>{const b=e.target.closest("button");if(!b||+b.dataset.n===stOf(p))return;
+    log(id,"Andamento","","",null,ST[stOf(p)]+" → "+ST[b.dataset.n]);S.st[id]=+b.dataset.n;save();stDraw();hist();drawDay(k);counters()};
+  apDraw();drawArt();hist();
+  return c;
+}
+function spaceBox(k){
+  const s=el("section","space");let img="";
+  s.innerHTML=`<div><div class="kick">Colaboração</div><h3>Espaço da StarBro</h3></div>
+  <p class="hint">Deixe aqui o que quer ver neste dia. A Voltz recebe e ajusta o plano.</p>
+  <form novalidate>
+    <div class="fld"><label class="lb" for="f-txt">Ideia, ajuste ou comentário</label><textarea id="f-txt"></textarea></div>
+    <div class="fld" style="margin-top:10px"><label class="lb" for="f-link">Link de referência</label><input id="f-link" type="url" placeholder="https://"></div>
+    <label class="file" style="margin-top:10px" for="f-img"><input class="hid" id="f-img" type="file" accept="image/*"><span class="fn2">Anexar imagem</span></label>
+    <p class="err" role="alert"></p>
+    <button class="btn solid" style="width:100%" type="submit">Adicionar a este dia</button>
+  </form>
+  <div class="list" style="display:flex;flex-direction:column;gap:10px"></div>`;
+  const list=s.querySelector(".list"), f=s.querySelector("form"), err=s.querySelector(".err"), lab=s.querySelector(".file");
+  const draw=n=>{const e=el("div","note");
+    e.innerHTML=`<div class="who2" style="display:flex;justify-content:space-between;gap:8px"><span><b>${esc(n.nome)}</b> · ${esc(n.lado||"")} · ${esc(n.quando)}</span><button class="lnk" type="button">Remover</button></div>${n.txt?`<p>${esc(n.txt)}</p>`:""}${n.link?`<a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.link)}</a>`:""}${n.img?`<img alt="Imagem anexada por ${esc(n.nome)}" src="${n.img}">`:""}`;
+    e.querySelector("button").onclick=()=>{S.notes[k]=(S.notes[k]||[]).filter(o=>o!==n);save();e.remove();drawDay(k)};
+    return e};
+  (S.notes[k]||[]).forEach(n=>list.append(draw(n)));
+  s.querySelector("#f-img").onchange=e=>{const file=e.target.files[0];if(!file)return;
+    shrink(file,1400,u=>{img=u;lab.querySelector("img")?.remove();const t=new Image();t.src=u;t.alt="";lab.prepend(t);lab.querySelector(".fn2").textContent=file.name})};
+  f.onsubmit=e=>{e.preventDefault();
+    const txt=f.querySelector("#f-txt").value.trim(), link=f.querySelector("#f-link").value.trim();
+    if(!S.nome){err.textContent="Escreva o seu nome no topo do painel.";needName();return}
+    if(!txt&&!img&&!link){err.textContent="Escreva um texto, anexe uma imagem ou cole um link.";return}
+    if(link&&!/^https?:\/\//i.test(link)){err.textContent="O link precisa começar com https://";return}
+    err.textContent="";
+    const n={nome:S.nome,lado:S.lado,txt,link,img,quando:now()};
+    (S.notes[k]=S.notes[k]||[]).unshift(n);save();
+    list.prepend(draw(n));drawDay(k);
+    f.querySelector("#f-txt").value="";f.querySelector("#f-link").value="";f.querySelector("#f-img").value="";img="";
+    lab.querySelector("img")?.remove();lab.querySelector(".fn2").textContent="Anexar imagem"};
+  return s;
+}
+counters();intro();
+</script>
+</body>
+</html>
